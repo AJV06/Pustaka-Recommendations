@@ -23,8 +23,8 @@ HYBRID_DIR.mkdir(
 # WEIGHTS
 # =====================================================
 
-W_SVD     = 0.50
-W_KNN     = 0.30
+W_SVD     = 0.20
+W_KNN     = 0.60
 W_CONTENT = 0.20
 
 TOP_N = 10

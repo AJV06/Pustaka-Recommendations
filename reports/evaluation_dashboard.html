@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pustaka – Recommender System Evaluation Dashboard</title>
+  <meta name="description" content="Interactive evaluation dashboard for the Pustaka Book Recommender System — comparing SVD, KNN, and Hybrid models across Precision, Recall, MAP, NDCG, Coverage and Diversity metrics." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Design tokens ────────────────────────────── */
+    :root {
+      --bg:          #080c14;
+      --bg-card:     #0e1520;
+      --bg-card2:    #131c2b;
+      --border:      rgba(99,179,237,.12);
+      --border-glow: rgba(99,179,237,.30);
+
+      --svd:    #6366f1;
+      --knn:    #10b981;
+      --hybrid: #f59e0b;
+
+      --svd-glow:    rgba(99,102,241,.25);
+      --knn-glow:    rgba(16,185,129,.25);
+      --hybrid-glow: rgba(245,158,11,.25);
+
+      --text:      #e2e8f0;
+      --text-muted:#7a8fa8;
+      --accent:    #63b3ed;
+
+      --radius:  14px;
+      --radius-sm: 8px;
+      --transition: .25s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ─────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99,179,237,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,179,237,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* ── Hero header ──────────────────────────────── */
+    .hero {
+      padding: 60px 0 48px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(99,179,237,.1);
+      border: 1px solid rgba(99,179,237,.25);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .hero-badge span { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+    h1 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #e2e8f0 0%, #63b3ed 50%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 560px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+
+    /* ── K toggle ─────────────────────────────────── */
+    .k-toggle {
+      display: inline-flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .k-btn {
+      padding: 8px 24px;
+      border-radius: 100px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      transition: var(--transition);
+    }
+    .k-btn.active {
+      background: linear-gradient(135deg, #6366f1, #63b3ed);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(99,102,241,.4);
+    }
+    .k-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,.05); }
+
+    /* ── Section titles ───────────────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── KPI hero cards ───────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media(max-width:680px){ .kpi-grid { grid-template-columns:1fr; } }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+      cursor: default;
+    }
+    .kpi-card::before {
+      content:'';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .kpi-card.svd  { border-color: rgba(99,102,241,.25); }
+    .kpi-card.svd::before  { background: linear-gradient(90deg, #6366f1, #a78bfa); }
+    .kpi-card.knn  { border-color: rgba(16,185,129,.25); }
+    .kpi-card.knn::before  { background: linear-gradient(90deg, #10b981, #34d399); }
+    .kpi-card.hybrid { border-color: rgba(245,158,11,.25); }
+    .kpi-card.hybrid::before { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+
+    .kpi-card:hover { transform: translateY(-4px); border-color: var(--border-glow); }
+    .kpi-card.svd:hover   { box-shadow: 0 16px 40px var(--svd-glow); }
+    .kpi-card.knn:hover   { box-shadow: 0 16px 40px var(--knn-glow); }
+    .kpi-card.hybrid:hover{ box-shadow: 0 16px 40px var(--hybrid-glow); }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .kpi-card.svd   .kpi-label { color: #a78bfa; }
+    .kpi-card.knn   .kpi-label { color: #34d399; }
+    .kpi-card.hybrid .kpi-label{ color: #fcd34d; }
+
+    .kpi-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kpi-metric { }
+    .kpi-metric-name {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .kpi-metric-value {
+      font-size: 26px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+    .kpi-card.svd   .kpi-metric-value { color: #a78bfa; }
+    .kpi-card.knn   .kpi-metric-value { color: #34d399; }
+    .kpi-card.hybrid .kpi-metric-value{ color: #fcd34d; }
+    .kpi-metric-pct {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Best badge ───────────────────────────────── */
+    .best-badge {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: rgba(16,185,129,.15);
+      border: 1px solid rgba(16,185,129,.35);
+      color: #34d399;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    /* ── Charts grid ──────────────────────────────── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media(max-width:800px){ .charts-grid { grid-template-columns:1fr; } }
+
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: var(--transition);
+    }
+    .chart-card:hover { border-color: var(--border-glow); }
+    .chart-card.wide { grid-column: 1 / -1; }
+
+    .chart-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .chart-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap.tall { height: 340px; }
+
+    /* ── Metric table ─────────────────────────────── */
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: left;
+      background: rgba(255,255,255,.02);
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid rgba(255,255,255,.04); transition: var(--transition); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+    tbody td { padding: 14px 16px; font-size: 13px; }
+
+    .model-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .model-pill.svd    { background:rgba(99,102,241,.15);  color:#a78bfa; border:1px solid rgba(99,102,241,.3); }
+    .model-pill.knn    { background:rgba(16,185,129,.15);  color:#34d399; border:1px solid rgba(16,185,129,.3); }
+    .model-pill.hybrid { background:rgba(245,158,11,.15);  color:#fcd34d; border:1px solid rgba(245,158,11,.3); }
+    .model-dot { width:7px; height:7px; border-radius:50%; }
+    .svd .model-dot    { background:#6366f1; }
+    .knn .model-dot    { background:#10b981; }
+    .hybrid .model-dot { background:#f59e0b; }
+
+    .val { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; }
+    .val.best { color:#34d399; }
+    td.metric-best { color:#34d399; font-weight:700; }
+
+    /* bar fill inside cell */
+    .bar-cell { position:relative; }
+    .bar-fill {
+      position:absolute; left:0; top:50%; transform:translateY(-50%);
+      height:30%; border-radius:2px; opacity:.25;
+    }
+    .bar-fill.svd    { background:#6366f1; }
+    .bar-fill.knn    { background:#10b981; }
+    .bar-fill.hybrid { background:#f59e0b; }
+
+    /* ── Progress bars section ────────────────────── */
+    .progress-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media(max-width:800px){ .progress-grid { grid-template-columns:1fr; } }
+
+    .progress-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .progress-card-title { font-size:13px; font-weight:700; margin-bottom:20px; color:var(--text); }
+
+    .prog-item { margin-bottom:16px; }
+    .prog-header { display:flex; justify-content:space-between; margin-bottom:6px; }
+    .prog-label { font-size:12px; color:var(--text-muted); }
+    .prog-value { font-size:12px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+    .prog-bar-track {
+      height: 7px;
+      background: rgba(255,255,255,.06);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .prog-bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 1.2s cubic-bezier(.4,0,.2,1);
+    }
+    .prog-bar-fill.svd    { background: linear-gradient(90deg, #6366f1, #a78bfa); }
+    .prog-bar-fill.knn    { background: linear-gradient(90deg, #10b981, #34d399); }
+    .prog-bar-fill.hybrid { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+
+    /* ── Coverage + Diversity mini-cards ──────────── */
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media(max-width:680px){ .mini-grid { grid-template-columns:1fr; } }
+
+    .mini-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mini-card-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); }
+    .mini-card-value { font-size:36px; font-weight:900; font-family:'JetBrains Mono',monospace; line-height:1; }
+    .mini-card-sub   { font-size:12px; color:var(--text-muted); }
+
+    /* ── RMSE / MAE card ──────────────────────────── */
+    .error-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .error-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .error-title { font-size:13px; font-weight:700; margin-bottom:20px; }
+
+    .error-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .error-row:last-child { border-bottom: none; }
+    .error-model { font-size:13px; font-weight:600; }
+    .error-vals { display:flex; gap:24px; }
+    .error-val-wrap { text-align:right; }
+    .error-val-label { font-size:10px; color:var(--text-muted); }
+    .error-val { font-size:17px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+
+    /* ── Hybrid weights ───────────────────────────── */
+    .weights-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .weights-inner { display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
+    .weight-chip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      flex: 1;
+      min-width: 160px;
+    }
+    .weight-chip.svd    { background:rgba(99,102,241,.1);  border:1px solid rgba(99,102,241,.25); }
+    .weight-chip.knn    { background:rgba(16,185,129,.1);  border:1px solid rgba(16,185,129,.25); }
+    .weight-chip.content{ background:rgba(245,158,11,.1);  border:1px solid rgba(245,158,11,.25); }
+    .weight-icon { font-size:22px; }
+    .weight-info-label { font-size:11px; color:var(--text-muted); }
+    .weight-info-val { font-size:22px; font-weight:900; font-family:'JetBrains Mono',monospace; }
+    .weight-chip.svd    .weight-info-val { color:#a78bfa; }
+    .weight-chip.knn    .weight-info-val { color:#34d399; }
+    .weight-chip.content .weight-info-val{ color:#fcd34d; }
+
+    /* ── Footer ───────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 40px 0 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      margin-top: 60px;
+    }
+
+    /* ── Scroll reveal ────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- ── Hero ────────────────────────────────────── -->
+  <header class="hero">
+    <div class="hero-badge"><span></span>Live Evaluation Dashboard</div>
+    <h1>Pustaka Recommender<br>System Metrics</h1>
+    <p class="hero-sub">Comparing SVD Matrix Factorisation, KNN Collaborative Filtering, and Hybrid Ensemble across ranking and accuracy metrics.</p>
+
+    <div class="k-toggle" id="kToggle">
+      <button class="k-btn active" data-k="5" id="btn5">K = 5</button>
+      <button class="k-btn" data-k="10" id="btn10">K = 10</button>
+    </div>
+  </header>
+
+  <!-- ── KPI Cards ────────────────────────────────── -->
+  <div class="section-title reveal">Model Performance Overview</div>
+  <div class="kpi-grid reveal">
+
+    <div class="kpi-card svd">
+      <div class="kpi-label">SVD · Matrix Factorisation</div>
+      <div class="kpi-metrics">
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">NDCG@K</div>
+          <div class="kpi-metric-value" id="svd-ndcg">0.0302</div>
+          <div class="kpi-metric-pct" id="svd-ndcg-pct">at K = 5</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">Recall@K</div>
+          <div class="kpi-metric-value" id="svd-recall">0.0330</div>
+          <div class="kpi-metric-pct" id="svd-recall-pct">at K = 5</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">MAP@K</div>
+          <div class="kpi-metric-value" id="svd-map">0.0242</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">Precision@K</div>
+          <div class="kpi-metric-value" id="svd-prec">0.0127</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card knn">
+      <div class="best-badge">🏆 Best Model</div>
+      <div class="kpi-label">KNN · Collaborative Filter</div>
+      <div class="kpi-metrics">
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">NDCG@K</div>
+          <div class="kpi-metric-value" id="knn-ndcg">0.1170</div>
+          <div class="kpi-metric-pct" id="knn-ndcg-pct">at K = 5</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">Recall@K</div>
+          <div class="kpi-metric-value" id="knn-recall">0.1774</div>
+          <div class="kpi-metric-pct" id="knn-recall-pct">at K = 5</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">MAP@K</div>
+          <div class="kpi-metric-value" id="knn-map">0.0818</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">Precision@K</div>
+          <div class="kpi-metric-value" id="knn-prec">0.0594</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card hybrid">
+      <div class="kpi-label">Hybrid · Ensemble (SVD+KNN+CB)</div>
+      <div class="kpi-metrics">
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">NDCG@K</div>
+          <div class="kpi-metric-value" id="hyb-ndcg">0.0606</div>
+          <div class="kpi-metric-pct" id="hyb-ndcg-pct">at K = 5</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">Recall@K</div>
+          <div class="kpi-metric-value" id="hyb-recall">0.0842</div>
+          <div class="kpi-metric-pct" id="hyb-recall-pct">at K = 5</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">MAP@K</div>
+          <div class="kpi-metric-value" id="hyb-map">0.0433</div>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-metric-name">Precision@K</div>
+          <div class="kpi-metric-value" id="hyb-prec">0.0300</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /kpi-grid -->
+
+  <!-- ── Charts ────────────────────────────────────── -->
+  <div class="section-title reveal">Ranking Metrics Breakdown</div>
+  <div class="charts-grid reveal">
+
+    <div class="chart-card">
+      <div class="chart-title">NDCG@K — Ranking Quality</div>
+      <div class="chart-desc">Normalised Discounted Cumulative Gain — rewards correct items appearing higher in the list.</div>
+      <div class="chart-wrap"><canvas id="chartNDCG"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Recall@K — Coverage of Relevant Items</div>
+      <div class="chart-desc">Fraction of books the user actually interacted with that appear in the top-K recommendations.</div>
+      <div class="chart-wrap"><canvas id="chartRecall"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">MAP@K — Mean Average Precision</div>
+      <div class="chart-desc">Precision averaged across all recall levels — sensitive to position of relevant items.</div>
+      <div class="chart-wrap"><canvas id="chartMAP"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Precision@K — Hit Rate</div>
+      <div class="chart-desc">Fraction of the top-K recommended books that are actually relevant to the user.</div>
+      <div class="chart-wrap"><canvas id="chartPrec"></canvas></div>
+    </div>
+
+    <div class="chart-card wide">
+      <div class="chart-title">All Metrics Radar — K = 5 vs K = 10</div>
+      <div class="chart-desc">Spider chart showing the full metric profile of each model normalised to [0, 1] for visual comparison.</div>
+      <div class="chart-wrap tall" style="display:flex;gap:24px;">
+        <canvas id="radarK5"></canvas>
+        <canvas id="radarK10"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Progress bars ─────────────────────────────── -->
+  <div class="section-title reveal">Metric Comparison @ K = 10</div>
+  <div class="progress-grid reveal">
+
+    <div class="progress-card">
+      <div class="progress-card-title">📈 NDCG@10</div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">KNN</span><span class="prog-value" style="color:#34d399">0.1413</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill knn" style="width:100%"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">Hybrid</span><span class="prog-value" style="color:#fcd34d">0.0729</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill hybrid" style="width:51.6%"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">SVD</span><span class="prog-value" style="color:#a78bfa">0.0356</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill svd" style="width:25.2%"></div></div>
+      </div>
+    </div>
+
+    <div class="progress-card">
+      <div class="progress-card-title">🎯 Recall@10</div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">KNN</span><span class="prog-value" style="color:#34d399">0.2459</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill knn" style="width:100%"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">Hybrid</span><span class="prog-value" style="color:#fcd34d">0.1198</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill hybrid" style="width:48.7%"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">SVD</span><span class="prog-value" style="color:#a78bfa">0.0500</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill svd" style="width:20.3%"></div></div>
+      </div>
+    </div>
+
+    <div class="progress-card">
+      <div class="progress-card-title">🗺️ MAP@10</div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">KNN</span><span class="prog-value" style="color:#34d399">0.0914</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill knn" style="width:100%"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">Hybrid</span><span class="prog-value" style="color:#fcd34d">0.0478</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill hybrid" style="width:52.3%"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-label">SVD</span><span class="prog-value" style="color:#a78bfa">0.0261</span></div>
+        <div class="prog-bar-track"><div class="prog-bar-fill svd" style="width:28.6%"></div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Coverage + Diversity mini cards ───────────── -->
+  <div class="section-title reveal">Catalog Coverage & Diversity @ K = 10</div>
+  <div class="mini-grid reveal">
+
+    <div class="mini-card">
+      <div class="mini-card-label">SVD Coverage</div>
+      <div class="mini-card-value" style="color:#a78bfa">4.2%</div>
+      <div class="mini-card-sub">25 of 600 books recommended<br>Diversity score: 0.55</div>
+    </div>
+
+    <div class="mini-card">
+      <div class="mini-card-label">KNN Coverage</div>
+      <div class="mini-card-value" style="color:#34d399">43.3%</div>
+      <div class="mini-card-sub">260 of 600 books recommended<br>Diversity score: 0.60</div>
+    </div>
+
+    <div class="mini-card">
+      <div class="mini-card-label">Hybrid Coverage</div>
+      <div class="mini-card-value" style="color:#fcd34d">45.2%</div>
+      <div class="mini-card-sub">271 of 600 books recommended<br>Diversity score: 0.56</div>
+    </div>
+
+  </div>
+
+  <!-- ── Full metrics table ─────────────────────────── -->
+  <div class="section-title reveal">Full Evaluation Results Table</div>
+  <div class="table-card reveal">
+    <div class="table-header">
+      <div class="chart-title">All Metrics · All Models · All K Values</div>
+      <div class="chart-desc">Green highlights indicate the best value per metric per K.</div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table id="fullTable">
+        <thead>
+          <tr>
+            <th>Model</th><th>K</th>
+            <th>Precision@K</th><th>Recall@K</th>
+            <th>MAP@K</th><th>NDCG@K</th>
+            <th>Diversity@K</th><th>Coverage@K</th>
+            <th>Eval Users</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Error metrics ──────────────────────────────── -->
+  <div class="section-title reveal">Rating Prediction Error (RMSE / MAE)</div>
+  <div class="error-grid reveal">
+
+    <div class="error-card">
+      <div class="error-title">SVD — Rating Prediction</div>
+      <div class="error-row">
+        <span class="error-model" style="color:#a78bfa">RMSE</span>
+        <div class="error-vals">
+          <div class="error-val-wrap">
+            <div class="error-val" style="color:#a78bfa">0.6572</div>
+            <div class="error-val-label">lower is better</div>
+          </div>
+        </div>
+      </div>
+      <div class="error-row">
+        <span class="error-model" style="color:#a78bfa">MAE</span>
+        <div class="error-vals">
+          <div class="error-val-wrap">
+            <div class="error-val" style="color:#a78bfa">0.5338</div>
+            <div class="error-val-label">lower is better</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-card">
+      <div class="error-title">KNN — Rating Prediction</div>
+      <div class="error-row">
+        <span class="error-model" style="color:#34d399">RMSE</span>
+        <div class="error-vals">
+          <div class="error-val-wrap">
+            <div class="error-val" style="color:#34d399">3.4550</div>
+            <div class="error-val-label">lower is better</div>
+          </div>
+        </div>
+      </div>
+      <div class="error-row">
+        <span class="error-model" style="color:#34d399">MAE</span>
+        <div class="error-vals">
+          <div class="error-val-wrap">
+            <div class="error-val" style="color:#34d399">3.1030</div>
+            <div class="error-val-label">lower is better</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Hybrid weights ─────────────────────────────── -->
+  <div class="section-title reveal">Hybrid Ensemble Weights</div>
+  <div class="weights-card reveal">
+    <div class="chart-title">Weighted Rank Fusion Configuration</div>
+    <div class="chart-desc">Scores from each model are min-max normalised per user, then combined using these weights before re-ranking.</div>
+    <div class="weights-inner">
+      <div class="weight-chip svd">
+        <div class="weight-icon">🧩</div>
+        <div>
+          <div class="weight-info-label">SVD — Matrix Factorisation</div>
+          <div class="weight-info-val">50%</div>
+        </div>
+      </div>
+      <div class="weight-chip knn">
+        <div class="weight-icon">👥</div>
+        <div>
+          <div class="weight-info-label">KNN — Collaborative Filter</div>
+          <div class="weight-info-val">30%</div>
+        </div>
+      </div>
+      <div class="weight-chip content">
+        <div class="weight-icon">📖</div>
+        <div>
+          <div class="weight-info-label">Content-Based (TF-IDF)</div>
+          <div class="weight-info-val">20%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<footer>
+  Pustaka Recommender System &nbsp;·&nbsp; Phases 6C / 6D / 6E / 7 Complete &nbsp;·&nbsp;
+  895 users · 600 books · 3,728 interactions evaluated
+</footer>
+
+<script>
+  /* ── Data ───────────────────────────────────────── */
+  const DATA = {
+    5:  { SVD:[0.0127,0.0330,0.0242,0.0302,0.8064,0.0000], KNN:[0.0594,0.1774,0.0818,0.1170,0.7524,0.0000], Hybrid:[0.0300,0.0842,0.0433,0.0606,0.7791,0.0000] },
+    10: { SVD:[0.0086,0.0500,0.0261,0.0356,0.5500,0.0417], KNN:[0.0411,0.2459,0.0914,0.1413,0.5950,0.4333], Hybrid:[0.0218,0.1198,0.0478,0.0729,0.5614,0.4517] }
+  };
+  const COLS = ['Precision@K','Recall@K','MAP@K','NDCG@K','Diversity@K','Coverage@K'];
+  const EVAL  = { SVD:220, KNN:219, Hybrid:220 };
+  const MODELS = ['SVD','KNN','Hybrid'];
+  const COLORS = { SVD:'#6366f1', KNN:'#10b981', Hybrid:'#f59e0b' };
+  const COLORS_T = { SVD:'rgba(99,102,241,.2)', KNN:'rgba(16,185,129,.2)', Hybrid:'rgba(245,158,11,.2)' };
+  const LABEL_IDX = { ndcg:3, recall:1, map:2, prec:0 };
+
+  let currentK = 5;
+
+  /* ── KPI update ─────────────────────────────────── */
+  function updateKPIs(k) {
+    const d = DATA[k];
+    ['svd','knn','hyb'].forEach((id,i) => {
+      const m = ['SVD','KNN','Hybrid'][i];
+      document.getElementById(`${id}-ndcg`).textContent  = d[m][3].toFixed(4);
+      document.getElementById(`${id}-recall`).textContent= d[m][1].toFixed(4);
+      document.getElementById(`${id}-map`).textContent   = d[m][2].toFixed(4);
+      document.getElementById(`${id}-prec`).textContent  = d[m][0].toFixed(4);
+      document.getElementById(`${id}-ndcg-pct`).textContent   = `at K = ${k}`;
+      document.getElementById(`${id}-recall-pct`).textContent = `at K = ${k}`;
+    });
+  }
+
+  /* ── Table ──────────────────────────────────────── */
+  function buildTable() {
+    const tbody = document.getElementById('tableBody');
+    const rows = [];
+    [5,10].forEach(k => {
+      MODELS.forEach(m => {
+        const vals = DATA[k][m];
+        rows.push({ model:m, k, vals, evalUsers:EVAL[m] });
+      });
+    });
+
+    // Best per metric per K
+    const best = {};
+    [5,10].forEach(k => {
+      best[k] = {};
+      COLS.forEach((_,ci) => {
+        best[k][ci] = Math.max(...MODELS.map(m => DATA[k][m][ci]));
+      });
+    });
+
+    tbody.innerHTML = rows.map(r => {
+      const cls = r.model.toLowerCase();
+      const pill = `<span class="model-pill ${cls}"><span class="model-dot"></span>${r.model}</span>`;
+      const cells = r.vals.map((v,ci) => {
+        const isBest = v === best[r.k][ci] && v > 0;
+        return `<td class="${isBest?'metric-best':''}">${v.toFixed(4)}</td>`;
+      });
+      return `<tr><td>${pill}</td><td><strong>${r.k}</strong></td>${cells.join('')}<td>${r.evalUsers}</td></tr>`;
+    }).join('');
+  }
+
+  /* ── Chart helpers ──────────────────────────────── */
+  const chartDefaults = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#7a8fa8', font:{size:12,family:'Inter'} } } },
+    scales:{
+      x:{ ticks:{color:'#7a8fa8',font:{size:11}}, grid:{color:'rgba(255,255,255,.05)'} },
+      y:{ ticks:{color:'#7a8fa8',font:{size:11}}, grid:{color:'rgba(255,255,255,.05)'}, beginAtZero:true }
+    }
+  };
+
+  function groupedBar(canvasId, labelsFn, dataFn) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    return new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: labelsFn(currentK),
+        datasets: MODELS.map(m => ({
+          label: m,
+          data: dataFn(m, currentK),
+          backgroundColor: COLORS_T[m],
+          borderColor: COLORS[m],
+          borderWidth: 2,
+          borderRadius: 6,
+        }))
+      },
+      options:{ ...chartDefaults, plugins:{ ...chartDefaults.plugins } }
+    });
+  }
+
+  const charts = {};
+
+  function makeBarChart(id, metricIdx) {
+    const ctx = document.getElementById(id).getContext('2d');
+    charts[id] = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels:['K = 5','K = 10'],
+        datasets: MODELS.map(m => ({
+          label:m,
+          data:[DATA[5][m][metricIdx], DATA[10][m][metricIdx]],
+          backgroundColor:COLORS_T[m],
+          borderColor:COLORS[m],
+          borderWidth:2,
+          borderRadius:6,
+        }))
+      },
+      options:{
+        ...chartDefaults,
+        plugins:{ ...chartDefaults.plugins, legend:{ ...chartDefaults.plugins.legend } }
+      }
+    });
+  }
+
+  function makeRadar(id, k) {
+    const ctx = document.getElementById(id).getContext('2d');
+    const labels = ['Precision','Recall','MAP','NDCG','Diversity','Coverage'];
+    const maxes  = labels.map((_,i) => Math.max(...MODELS.map(m => DATA[k][m][i])) || 1);
+
+    charts[id] = new Chart(ctx, {
+      type:'radar',
+      data:{
+        labels,
+        datasets: MODELS.map(m => ({
+          label: `${m} (K=${k})`,
+          data: DATA[k][m].map((v,i) => maxes[i]>0 ? v/maxes[i] : 0),
+          backgroundColor: COLORS_T[m],
+          borderColor: COLORS[m],
+          borderWidth: 2,
+          pointBackgroundColor: COLORS[m],
+          pointRadius: 4,
+        }))
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#7a8fa8', font:{size:11,family:'Inter'} } } },
+        scales:{
+          r:{
+            ticks:{ color:'#7a8fa8', backdropColor:'transparent', font:{size:10} },
+            grid:{ color:'rgba(255,255,255,.08)' },
+            angleLines:{ color:'rgba(255,255,255,.08)' },
+            pointLabels:{ color:'#e2e8f0', font:{size:12,weight:'600'} },
+            min:0, max:1,
+          }
+        }
+      }
+    });
+  }
+
+  /* ── K toggle logic ─────────────────────────────── */
+  document.getElementById('kToggle').addEventListener('click', e => {
+    const btn = e.target.closest('.k-btn');
+    if (!btn) return;
+    const k = parseInt(btn.dataset.k);
+    if (k === currentK) return;
+    currentK = k;
+    document.querySelectorAll('.k-btn').forEach(b => b.classList.toggle('active', b===btn));
+    updateKPIs(k);
+  });
+
+  /* ── Init ───────────────────────────────────────── */
+  function init() {
+    updateKPIs(5);
+    buildTable();
+    makeBarChart('chartNDCG', 3);
+    makeBarChart('chartRecall', 1);
+    makeBarChart('chartMAP', 2);
+    makeBarChart('chartPrec', 0);
+    makeRadar('radarK5', 5);
+    makeRadar('radarK10', 10);
+
+    // Scroll reveal
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => { if(e.isIntersecting) { e.target.classList.add('visible'); } });
+    }, { threshold:0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

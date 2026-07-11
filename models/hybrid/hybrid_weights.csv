@@ -1,0 +1,4 @@
+Model,Weight
+SVD,0.2
+KNN,0.6
+Content-Based,0.2
