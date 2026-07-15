@@ -50,10 +50,11 @@ app.add_middleware(
 # Custom exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
     logger.error(f"Unexpected Exception during {request.method} {request.url}: {exc}")
     return JSONResponse(
         status_code=500,
-        content={"detail": "An unexpected error occurred. Please try again later."},
+        content={"detail": "An unexpected error occurred. Please try again later.", "error": str(exc), "trace": traceback.format_exc()},
     )
 
 # Middleware for timing and logging requests
