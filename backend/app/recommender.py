@@ -74,9 +74,9 @@ class RecommenderEngine:
                     "rating": meta["rating"],
                     "score": round(float(row["score"]), 4),
                     "hybrid_score": round(float(row["score"]), 4),
-                    "knn_score": 0.0,
-                    "cb_score": 0.0,
-                    "svd_score": 0.0
+                    "knn_score": None if pd.isna(row.get("knn_score")) else round(float(row.get("knn_score")), 4),
+                    "cb_score": None if pd.isna(row.get("cb_score")) else round(float(row.get("cb_score")), 4),
+                    "svd_score": None if pd.isna(row.get("svd_score")) else round(float(row.get("svd_score")), 4)
                 })
         else:
             logger.warning(f"Interactions file not found at {interactions_path}")
@@ -105,9 +105,9 @@ class RecommenderEngine:
                         "rating": meta["rating"],
                         "score": round(score, 4),
                         "hybrid_score": round(score, 4),
-                        "knn_score": round(float(row.get("knn_score", 0.0)), 4),
-                        "cb_score": round(float(row.get("cb_score", 0.0)), 4),
-                        "svd_score": round(float(row.get("svd_score", 0.0)), 4)
+                        "knn_score": None if pd.isna(row.get("knn_score")) else round(float(row.get("knn_score")), 4),
+                        "cb_score": None if pd.isna(row.get("cb_score")) else round(float(row.get("cb_score")), 4),
+                        "svd_score": None if pd.isna(row.get("svd_score")) else round(float(row.get("svd_score")), 4)
                     })
                 self.user_recommendations[str(user)] = recs
         else:
