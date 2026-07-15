@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: pustaka_api
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - MODEL_PATH=/app/models
+      - DATA_PATH=/app/data
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
