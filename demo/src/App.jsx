@@ -286,6 +286,12 @@ export default function App() {
 
               return (
                 <div key={book.book_id} className="recommendationCard">
+                  {typeof book.score === 'number' && (
+                    <div className="matchBadge">
+                      {(book.score * 100).toFixed(0)}% Match
+                    </div>
+                  )}
+                  
                   <div className="cover">
                     <Library size={48} />
                   </div>
@@ -303,6 +309,12 @@ export default function App() {
                     {reasons.map((reason, i) => (
                       <p key={i}>{reason}</p>
                     ))}
+                    
+                    <div className="analyticsBar">
+                      <span>CB: <strong>{typeof book.cb_score === 'number' ? book.cb_score.toFixed(2) : 'N/A'}</strong></span>
+                      <span>KNN: <strong>{typeof book.knn_score === 'number' ? book.knn_score.toFixed(2) : 'N/A'}</strong></span>
+                      <span>SVD: <strong>{typeof book.svd_score === 'number' ? book.svd_score.toFixed(2) : 'N/A'}</strong></span>
+                    </div>
                   </div>
                 </div>
               );

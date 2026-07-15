@@ -525,3 +525,39 @@ a {
     content: "•";
     color: var(--accent);
 }
+
+.recommendationCard {
+    position: relative;
+}
+
+.matchBadge {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    background: var(--accent);
+    color: white;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    box-shadow: 0 4px 12px rgba(217, 119, 87, 0.4);
+    z-index: 10;
+}
+
+.analyticsBar {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-strong);
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.analyticsBar span strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
